@@ -3,9 +3,9 @@ SYSUStreetView
 
 Streetview of SYSU based on OpenCV stitcher.
 
->> No voice but big deal.
+> No voice but big deal.
 
-### INSTALL OPENCV
+## INSTALL OPENCV
 
 Install dependences
 
@@ -28,12 +28,13 @@ Compile OpenCV. This may take a long time. Be patient.
 ```bash
 mkdir build
 cd build/
-cmake .. -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Release -DBUILD_EXAMPLES=ON -DWITH_OPENNI=ON -DWITH_OPENGL=ON
+cmake .. -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Release -DBUILD_EXAMPLES=ON \
+    -DWITH_OPENNI=ON -DWITH_OPENGL=ON
 make
 sudo make install
 ```
 
-### Compile & Run
+## Compile & Run
 ```
 make
 ./stitching img/*
