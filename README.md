@@ -23,6 +23,12 @@ sudo apt-get install cmake build-essential libgtk2.0-dev libgtk2.0-0 \
 
 If you get errors while compiling, install the dependences by yourself.
 
+Get the OpenCV sources
+
+```bash
+git submodule update
+```
+
 Compile OpenCV. This may take a long time. Be patient.
 
 ```bash
