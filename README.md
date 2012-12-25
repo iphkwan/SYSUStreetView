@@ -14,7 +14,7 @@ pass
 
 ### Compile & Run
 ```
-g++ stitching.cpp `pkg-config --libs --cflags opencv`
-./a.out *jpg
-eog result.jpg
+make
+./stitching img/*
+xdg-open result.jpg
 ```
