@@ -17,8 +17,7 @@ sudo apt-get install cmake build-essential libgtk2.0-dev libgtk2.0-0 \
     libgstreamer-plugins-base0.10-dev gstreamer0.10-plugins-good \
     gstreamer0.10-plugins-ugly gstreamer0.10-plugins-bad gstreamer0.10-ffmpeg \
     libopenexr-dev python-dev python-numpy libtbb-dev libfaac-dev \
-    libxvidcore-dev libx264-dev sphinx-common libv4l-dev libdc1394-22-dev \
-    lib-avcodec-dev 
+    libxvidcore-dev libx264-dev sphinx-common libv4l-dev libdc1394-22-dev
 ```
 
 If you get errors while compiling, install the dependences by yourself.
