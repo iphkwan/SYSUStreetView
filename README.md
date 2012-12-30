@@ -28,6 +28,11 @@ Get the OpenCV sources
 git submodule update
 ```
 
+Modify `ENABLE_LOG` in  `modules/stitching/include/opencv2/stitching/detail/util.hpp` line 49 to `1`
+```cpp
+#define ENABLE_LOG 1
+```
+
 Compile OpenCV. This may take a long time. Be patient.
 
 ```bash
