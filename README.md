@@ -75,54 +75,6 @@ enblend -o project.tif project0000.tif project0001.tif ...
 
 Then you get the TIFF image. Use `convert xxx.tif xxx.png` to convert it to PNG format.
 
-## Install FreePV
-
-Compile FreePV (Free Panorama Viewer)
-
-```bash
-cd freepv
-tar -xvf freepv-0.3.0.tar.gz
-patch -p0 < freepv-0.3.0-ubuntu10.04lts-p1.patch
-cd freepv-0.3.0
-cmake .
-make && sudo make install
-```
-
-Then run `freepv-glut` or `freepv-glx` can open the FreePV GUI. Example
-
-```bash
-freepv-glut img/1上-9下.png
-```
-
-## Compile PanoGLView
-
-Install Dependences
-
-```bash
-sudo apt-get install wx-common libwxgtk2.8-dev libglew-dev
-```
-
-Get sources and compile
-
-```bash
-mkdir panoglview
-cd panoglview
-hg clone http://hugin.hg.sourceforge.net:8000/hgroot/hugin/panoglview panoglview.hg
-cd panoglview.hg
-hg update
-./bootstrap
-./configure
-make
-```
-
-Then you can find `panoglview` in the `src` folder
-
-## Other Open-sources Pano Viewers
-
-* [Interactive Panorama Viewer](http://sourceforge.net/projects/panoramaviewer/?source=recommended)
-
-* [Panini perspective tool](http://sourceforge.net/projects/pvqt/?source=recommended)
-
 ## Compile & Run
 ```
 make
