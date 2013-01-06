@@ -94,6 +94,29 @@ Then run `freepv-glut` or `freepv-glx` can open the FreePV GUI. Example
 freepv-glut img/1上-9下.png
 ```
 
+## Compile PanoGLView
+
+Install Dependences
+
+```bash
+sudo apt-get install wx-common libwxgtk2.8-dev libglew-dev
+```
+
+Get sources and compile
+
+```bash
+mkdir panoglview
+cd panoglview
+hg clone http://hugin.hg.sourceforge.net:8000/hgroot/hugin/panoglview panoglview.hg
+cd panoglview.hg
+hg update
+./bootstrap
+./configure
+make
+```
+
+Then you can find `panoglview` in the `src` folder
+
 ## Compile & Run
 ```
 make
