@@ -81,3 +81,5 @@ make
 ./stitching img/*
 xdg-open result.jpg
 ```
+
+Images in `pimgs.tar.bz2` are used for showing.
