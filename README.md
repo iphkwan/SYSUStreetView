@@ -44,6 +44,39 @@ make
 sudo make install
 ```
 
+## Install And Use PanoTools
+
+Install Dependence
+
+```bash
+sudo apt-get install libpano13-2 libpano13-bin
+```
+
+Basic steps
+
+```bash
+pto_gen -o project.pto *.JPG  ## Generate PTO file
+cpfind -o project.pto --multirow --celeste project.pto ## Find Control Points, with celeste to ignore clouds
+cpclean -o project.pto project.pto ## Control Point Cleaning
+linefind -o project.pto project.pto ## Find Vertical lines
+## Optimize position, do photometric optimization, straighten panorama and select suitable output projection
+autooptimiser -a -m -l -s -o project.pto project.pto
+pano_modify --canvas=AUTO --crop=AUTO -o project.pto project.pto ## Calculate optimal crop and optimal size
+pto2mk -o project.mk -p prefix project.pto ## Generate stitching makefile
+make -f project.mk all ## Generate final Panorama
+```
+
+The final step can be seperated into two basic steps
+
+```bash
+nona -m TIFF_m -o project project.pto
+enblend -o project.tif project0000.tif project0001.tif ...
+```
+
+Then you get the TIFF image. Use `convert xxx.tif xxx.png` to convert it to PNG format.
+
+## Install FreePV
+
 Compile FreePV (Free Panorama Viewer)
 
 ```bash
