@@ -117,6 +117,12 @@ make
 
 Then you can find `panoglview` in the `src` folder
 
+## Other Open-sources Pano Viewers
+
+* [Interactive Panorama Viewer](http://sourceforge.net/projects/panoramaviewer/?source=recommended)
+
+* [Panini perspective tool](http://sourceforge.net/projects/pvqt/?source=recommended)
+
 ## Compile & Run
 ```
 make
