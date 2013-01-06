@@ -1,139 +1,279 @@
 #include <GL/gl.h>
 #include <GL/glu.h>
 #include <GL/glut.h>
+#include <cmath>
+#include <iostream>
+#include <png.h>
+#include <cstdio>
+#include <errno.h>
+#include <malloc.h>
+#include <cstring>
+using namespace std;
 
-#define stripeImageWidth 32
-GLubyte stripeImage [4 * stripeImageWidth];
+const double PI = acos(-1);
 
-static GLuint texName;
+GLfloat len = 5.0f;
+GLfloat radius = 2.0f;
 
-void makeStripeImage(void) {
-    int j;
+GLuint texname;
+GLubyte *textureImage;
+int imgW, imgH;
+bool imgHasAlpha;
 
-    for (j = 0; j < stripeImageWidth; j ++) {
-        stripeImage[4 * j] = (GLubyte) ((j <= 4) ? 255: 0);
-        stripeImage[4 * j + 1] = (GLubyte) ((j <= 4) ? 255: 0);
-        stripeImage[4 * j + 2] = (GLubyte) 0;
-        stripeImage[4 * j + 3] = (GLubyte) 255;
+bool loadPngImage(char *name, int &outWidth, int &outHeight, bool &outHasAlpha, GLubyte **outData) {
+    png_structp png_ptr;
+    png_infop info_ptr;
+    unsigned int sig_read = 0;
+    int color_type, interlace_type;
+    FILE *fp;
+
+    if ((fp = fopen(name, "rb")) == NULL)
+        return false;
+
+    /* Create and initialize the png_struct
+     * with the desired error handler
+     * functions.  If you want to use the
+     * default stderr and longjump method,
+     * you can supply NULL for the last
+     * three parameters.  We also supply the
+     * the compiler header file version, so
+     * that we know if the application
+     * was compiled with a compatible version
+     * of the library.  REQUIRED
+     */
+    png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING,
+            NULL, NULL, NULL);
+
+    if (png_ptr == NULL) {
+        fclose(fp);
+        return false;
     }
-}
 
-static GLfloat xequalzero[] = {1.0, 0.0, 0.0, 0.0};
-static GLfloat slanted[] = {1.0, 1.0, 1.0, 0.0};
-static GLfloat *currentCoeff;
-static GLenum currentPlane;
-static GLint currentGenMode;
+    /* Allocate/initialize the memory
+     * for image information.  REQUIRED. */
+    info_ptr = png_create_info_struct(png_ptr);
+    if (info_ptr == NULL) {
+        fclose(fp);
+        png_destroy_read_struct(&png_ptr, png_infopp_NULL, png_infopp_NULL);
+        return false;
+    }
 
-void init(void) {
-    glClearColor(0.0, 0.0, 0.0, 0.0);
-    glEnable(GL_DEPTH_TEST);
-    glShadeModel(GL_SMOOTH);
+    /* Set error handling if you are
+     * using the setjmp/longjmp method
+     * (this is the normal method of
+     * doing things with libpng).
+     * REQUIRED unless you  set up
+     * your own error handlers in
+     * the png_create_read_struct()
+     * earlier.
+     */
+    if (setjmp(png_jmpbuf(png_ptr))) {
+        /* Free all of the memory associated
+         * with the png_ptr and info_ptr */
+        png_destroy_read_struct(&png_ptr, &info_ptr, png_infopp_NULL);
+        fclose(fp);
+        /* If we get here, we had a
+         * problem reading the file */
+        return false;
+    }
 
-    makeStripeImage();
-    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    /* Set up the output control if
+     * you are using standard C streams */
+    png_init_io(png_ptr, fp);
 
-    glGenTextures(1, &texName);
-    glBindTexture(GL_TEXTURE_1D, texName);
-    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexImage1D(GL_TEXTURE_1D, 0, GL_RGBA, stripeImageWidth, 0, GL_RGBA, GL_UNSIGNED_BYTE, stripeImage);
+    /* If we have already
+     * read some of the signature */
+    png_set_sig_bytes(png_ptr, sig_read);
 
-    glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
-    currentCoeff = xequalzero;
-    currentGenMode = GL_OBJECT_LINEAR;
-    currentPlane = GL_OBJECT_PLANE;
-    glTexGeni(GL_S, GL_TEXTURE_GEN_MODE, currentGenMode);
-    glTexGenfv(GL_S, currentPlane, currentCoeff);
+    /*
+     * If you have enough memory to read
+     * in the entire image at once, and
+     * you need to specify only
+     * transforms that can be controlled
+     * with one of the PNG_TRANSFORM_*
+     * bits (this presently excludes
+     * dithering, filling, setting
+     * background, and doing gamma
+     * adjustment), then you can read the
+     * entire image (including pixels)
+     * into the info structure with this
+     * call
+     *
+     * PNG_TRANSFORM_STRIP_16 |
+     * PNG_TRANSFORM_PACKING  forces 8 bit
+     * PNG_TRANSFORM_EXPAND forces to
+     *  expand a palette into RGB
+     */
+    png_read_png(png_ptr, info_ptr, PNG_TRANSFORM_STRIP_16 | PNG_TRANSFORM_PACKING | PNG_TRANSFORM_EXPAND, png_voidp_NULL);
 
-    glEnable(GL_TEXTURE_GEN_S);
-    glEnable(GL_TEXTURE_1D);
-    glEnable(GL_CULL_FACE);
-    glEnable(GL_LIGHTING);
-    glEnable(GL_LIGHT0);
-    glEnable(GL_AUTO_NORMAL);
-    glEnable(GL_NORMALIZE);
-    glFrontFace(GL_CW);
-    glCullFace(GL_BACK);
-    glMaterialf(GL_FRONT, GL_SHININESS, 64.0);
+    outWidth = info_ptr->width;
+    outHeight = info_ptr->height;
+    switch (info_ptr->color_type) {
+        case PNG_COLOR_TYPE_RGBA:
+            outHasAlpha = true;
+            break;
+        case PNG_COLOR_TYPE_RGB:
+            outHasAlpha = false;
+            break;
+        default:
+            std::cout << "Color type " << info_ptr->color_type << " not supported" << std::endl;
+            png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
+            fclose(fp);
+            return false;
+    }
+    unsigned int row_bytes = png_get_rowbytes(png_ptr, info_ptr);
+    *outData = (unsigned char*) malloc(row_bytes * outHeight);
+
+    png_bytepp row_pointers = png_get_rows(png_ptr, info_ptr);
+
+    for (int i = 0; i < outHeight; i++) {
+        // note that png is ordered top to
+        // bottom, but OpenGL expect it bottom to top
+        // so the order or swapped
+        memcpy(*outData+(row_bytes * (outHeight-1-i)), row_pointers[i], row_bytes);
+    }
+
+    /* Clean up after the read,
+     * and free any memory allocated */
+    png_destroy_read_struct(&png_ptr, &info_ptr, png_infopp_NULL);
+
+    /* Close the file */
+    fclose(fp);
+
+    /* That's it */
+    return true;
 }
 
 void display(void) {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    
+    glColor3f(1.0, 1.0, 1.0);
 
-    glPushMatrix();
-        glRotatef(45.0, 0.0, 0.0, 1.0);
-        glBindTexture(GL_TEXTURE_1D, texName);
-        glutSolidTeapot(2.0);
-    glPopMatrix();
+    glBegin(GL_QUADS);
+    //glBindTexture(GL_TEXTURE_2D, texname);
+    for (GLfloat i = 0.0f; i <= 2 * PI; i += 0.01f) {
+        double pos1 = i / (2 * PI);
+        double pos2 = (i + 0.01) / (2 * PI);
+        glTexCoord2f(/*pos1 > 1 ? 1 : */pos1, 0.0); glVertex3f(cos(i) * radius, -len / 2, sin(i) * radius);
+        glTexCoord2f(/*pos2 > 1 ? 1 : */pos2, 0.0); glVertex3f(cos(i + 0.01) * radius, -len / 2, sin(i + 0.01) * radius);
+        glTexCoord2f(/*pos2 > 1 ? 1 : */pos2, 1.0); glVertex3f(cos(i + 0.01) * radius, len / 2, sin(i + 0.01) * radius);
+        glTexCoord2f(/*pos1 > 1 ? 1 : */pos1, 1.0); glVertex3f(cos(i) * radius, len / 2, sin(i) * radius);
+    }
+    glEnd();
+
     glFlush();
+    glutSwapBuffers();
 }
 
+static double lookatx = 1.0, lookatz = 0.0;
+static int scrw, scrh;
 void reshape(int w, int h) {
+    scrw = w;
+    scrh = h;
     glViewport(0, 0, (GLsizei) w, (GLsizei) h);
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
-    if (w <= h) {
-        glOrtho(-3.5, 3.5, -3.5 * (GLfloat) h / (GLfloat) w,
-                3.5 * (GLfloat) h / (GLfloat) w, -3.5, 3.5);
-    }
-    else {
-        glOrtho(-3.5 * (GLfloat) w / (GLfloat) h, 
-                3.5 * (GLfloat) w / (GLfloat) h, -3.5, 3.5, -3.5, 3.5);
-    }
-
+    gluPerspective(60.0, (GLfloat) w / (GLfloat) h, 1.0, 1000.0);
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
+    gluLookAt(0, 0, 0, lookatx, 0.0, lookatz, 0.0, 1.0, 0.0);
 }
 
-void keyboard(unsigned char key, int x, int y) {
-    switch (key) {
-        case 'e':
-        case 'E':
-            currentGenMode = GL_EYE_LINEAR;
-            currentPlane = GL_EYE_PLANE;
-            glTexGeni(GL_S, GL_TEXTURE_GEN_MODE, currentGenMode);
-            glTexGenfv(GL_S, currentPlane, currentCoeff);
-            glutPostRedisplay();
-            break;
-        case 'o':
-        case 'O':
-            currentGenMode = GL_OBJECT_LINEAR;
-            currentPlane = GL_OBJECT_PLANE;
-            glTexGeni(GL_S, GL_TEXTURE_GEN_MODE, currentGenMode);
-            glTexGenfv(GL_S, currentPlane, currentCoeff);
-            glutPostRedisplay();
-            break;
-        case 's':
-        case 'S':
-            currentCoeff = slanted;
-            glTexGenfv(GL_S, currentPlane, currentCoeff);
-            glutPostRedisplay();
-            break;
-        case 'x':
-        case 'X':
-            currentCoeff = xequalzero;
-            glTexGenfv(GL_S, currentPlane, currentCoeff);
-            glutPostRedisplay();
-            break;
-        case 27:
-            exit(0);
-            break;
-        default:
-            break;
+int now = 0;
+double degToRad(int d) {
+    return d / 180.0 * PI;
+}
+
+void passiveMotionFunc(int x, int y) {
+    if ( x > (scrw / 2) ) 
+        now = (now + 2) % 360;
+    else {
+        now = (now - 2) % 360;
+        if (now < 0) now = 360;
     }
+
+    //cout << "now=" << now << endl;
+
+    lookatx = cos(degToRad(now));
+    lookatz = sin(degToRad(now));
+
+    //cout << "x=" << x << " scrw=" << scrw << endl;
+    //cout << lookatx << "  " << lookatz << endl;
+    glLoadIdentity();
+
+    gluLookAt(0, 0, 0, lookatx, 0.0, lookatz, 0.0, 1.0, 0.0);
+    glutPostRedisplay();
+}
+
+void keyboard(int key, int x, int y) {
+    switch (key) {
+    case GLUT_KEY_LEFT:
+        now = (now - 2) % 360;
+        if (now < 0) now = 360;
+        break;
+    case GLUT_KEY_RIGHT:
+        now = (now + 2) % 360;
+        break;
+    default:
+        break;
+    }
+
+    lookatx = cos(degToRad(now));
+    lookatz = sin(degToRad(now));
+    glLoadIdentity();
+
+    gluLookAt(0, 0, 0, lookatx, 0.0, lookatz, 0.0, 1.0, 0.0);
+    glutPostRedisplay();
+}
+
+void init(char *filename) {
+    glClearColor(0.0, 0.0, 0.0, 0.0);
+    glEnable(GL_DEPTH_TEST);
+    glShadeModel(GL_SMOOTH);
+    glEnable(GL_BLEND);
+    glBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    bool valid = loadPngImage(filename, imgW, imgH, imgHasAlpha, &textureImage);
+    if (!valid) {
+        perror(filename);
+        exit(1);
+    }
+
+    double fac = len / imgH;
+    radius = imgW / 2.0 / PI * fac;
+
+
+    cout << "imgW=" << imgW << " imgH=" << imgH << " radius=" << radius << endl;
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+
+    glGenTextures(2, &texname);
+    glBindTexture(GL_TEXTURE_2D, texname);
+    glTexImage2D(GL_TEXTURE_2D, 0, imgHasAlpha ? 4 : 3, imgW,
+                imgH, 0, imgHasAlpha ? GL_RGBA : GL_RGB, GL_UNSIGNED_BYTE,
+                textureImage);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glEnable(GL_TEXTURE_2D);
 }
 
 int main(int argc, char **argv) {
+    cout << "PI=" << PI << endl;
     glutInit(&argc, argv);
-    glutInitDisplayMode(GLUT_SINGLE | GLUT_RGB | GLUT_DEPTH);
-    glutInitWindowSize(256, 256);
+    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH);
+    glutInitWindowSize(500, 500);
     glutInitWindowPosition(100, 100);
-    glutCreateWindow(argv[0]);
-    init();
+    glutCreateWindow("Panorama Viewer");
+    if (argc != 2) {
+        cout << "You must input a PNG file" << endl;
+        exit(1);
+    }
+    init(argv[1]);
     glutDisplayFunc(display);
     glutReshapeFunc(reshape);
-    glutKeyboardFunc(keyboard);
+    glutSpecialFunc(keyboard);
+    //glutPassiveMotionFunc(passiveMotionFunc);
     glutMainLoop();
-    return 0;
+
 }

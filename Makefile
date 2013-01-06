@@ -1,7 +1,7 @@
 CV_CFLAGS = `pkg-config --cflags opencv`
 CV_LIBS = `pkg-config --libs opencv`
 
-GL_LIBS = -lGL -lGLU -lglut
+GL_LIBS = -lGL -lGLU -lglut -lpng
 
 all: stitching stitching_detailed view
 
