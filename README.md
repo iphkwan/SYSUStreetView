@@ -44,6 +44,23 @@ make
 sudo make install
 ```
 
+Compile FreePV (Free Panorama Viewer)
+
+```bash
+cd freepv
+tar -xvf freepv-0.3.0.tar.gz
+patch -p0 < freepv-0.3.0-ubuntu10.04lts-p1.patch
+cd freepv-0.3.0
+cmake .
+make && sudo make install
+```
+
+Then run `freepv-glut` or `freepv-glx` can open the FreePV GUI. Example
+
+```bash
+freepv-glut img/1上-9下.png
+```
+
 ## Compile & Run
 ```
 make
