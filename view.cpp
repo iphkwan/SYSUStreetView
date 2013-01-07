@@ -8,7 +8,40 @@
 #include <errno.h>
 #include <malloc.h>
 #include <cstring>
+#include <vector>
+#include <string>
+#include <map>
+#include <fstream>
+#include <cstdlib>
 using namespace std;
+
+struct NextNode {
+    NextNode(string filename, int deg)
+        :img_file(filename), deg(deg) {}
+    string img_file;
+    int deg;
+};
+
+struct ImageNode {
+    ImageNode(string filename, int dev)
+        :img_file(filename), deviate(dev) {}
+    string img_file;
+    int deviate; // 偏转角（图片中的北方与Z轴的夹角）
+    /** 用于修正图片偏转，使用时用nowdeg += deviate
+     *            |
+     *            |
+     *            |
+     *            |
+     *            |
+     *  ----------.----------->
+     *           /|         X
+     *          / |
+     *         /deviate
+     *        /   |
+     *           Zv nowdeg=0
+     */
+    vector<NextNode> next;
+};
 
 const double PI = acos(-1);
 
@@ -19,8 +52,13 @@ GLuint texname;
 GLubyte *textureImage;
 int imgW, imgH;
 bool imgHasAlpha;
+int nowdeg = 0;
 
-bool loadPngImage(char *name, int &outWidth, int &outHeight, bool &outHasAlpha, GLubyte **outData) {
+vector<ImageNode> imgAdjList;
+map<string, int> imgIndex;
+int currentImg = 0;
+
+bool loadPngImage(const char *name, int &outWidth, int &outHeight, bool &outHasAlpha, GLubyte **outData) {
     png_structp png_ptr;
     png_infop info_ptr;
     unsigned int sig_read = 0;
@@ -37,7 +75,7 @@ bool loadPngImage(char *name, int &outWidth, int &outHeight, bool &outHasAlpha, 
      * you can supply NULL for the last
      * three parameters.  We also supply the
      * the compiler header file version, so
-     * that we know if the application
+     * that we knowdeg if the application
      * was compiled with a compatible version
      * of the library.  REQUIRED
      */
@@ -150,7 +188,6 @@ void display(void) {
     glColor3f(1.0, 1.0, 1.0);
 
     glBegin(GL_QUADS);
-    //glBindTexture(GL_TEXTURE_2D, texname);
     for (GLfloat i = 0.0f; i <= 2 * PI; i += 0.01f) {
         double pos1 = i / (2 * PI);
         double pos2 = (i + 0.01) / (2 * PI);
@@ -179,23 +216,22 @@ void reshape(int w, int h) {
     gluLookAt(0, 0, 0, lookatx, 0.0, lookatz, 0.0, 1.0, 0.0);
 }
 
-int now = 0;
 double degToRad(int d) {
     return d / 180.0 * PI;
 }
-
+/*
 void passiveMotionFunc(int x, int y) {
     if ( x > (scrw / 2) ) 
-        now = (now + 2) % 360;
+        nowdeg = (nowdeg + 2) % 360;
     else {
-        now = (now - 2) % 360;
-        if (now < 0) now = 360;
+        nowdeg = (nowdeg - 2) % 360;
+        if (nowdeg < 0) nowdeg = 360;
     }
 
-    //cout << "now=" << now << endl;
+    //cout << "nowdeg=" << nowdeg << endl;
 
-    lookatx = cos(degToRad(now));
-    lookatz = sin(degToRad(now));
+    lookatx = cos(degToRad(nowdeg));
+    lookatz = sin(degToRad(nowdeg));
 
     //cout << "x=" << x << " scrw=" << scrw << endl;
     //cout << lookatx << "  " << lookatz << endl;
@@ -204,35 +240,30 @@ void passiveMotionFunc(int x, int y) {
     gluLookAt(0, 0, 0, lookatx, 0.0, lookatz, 0.0, 1.0, 0.0);
     glutPostRedisplay();
 }
-
+*/
 void keyboard(int key, int x, int y) {
     switch (key) {
     case GLUT_KEY_LEFT:
-        now = (now - 2) % 360;
-        if (now < 0) now = 360;
+        nowdeg = (nowdeg - 2) % 360;
+        if (nowdeg < 0) nowdeg = 360;
         break;
     case GLUT_KEY_RIGHT:
-        now = (now + 2) % 360;
+        nowdeg = (nowdeg + 2) % 360;
         break;
     default:
         break;
     }
+    cout << "Current deg = " << nowdeg << endl;
 
-    lookatx = cos(degToRad(now));
-    lookatz = sin(degToRad(now));
+    lookatx = cos(degToRad(nowdeg));
+    lookatz = sin(degToRad(nowdeg));
     glLoadIdentity();
 
     gluLookAt(0, 0, 0, lookatx, 0.0, lookatz, 0.0, 1.0, 0.0);
     glutPostRedisplay();
 }
 
-void init(char *filename) {
-    glClearColor(0.0, 0.0, 0.0, 0.0);
-    glEnable(GL_DEPTH_TEST);
-    glShadeModel(GL_SMOOTH);
-    glEnable(GL_BLEND);
-    glBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
+void loadImage(const char *filename) {
     bool valid = loadPngImage(filename, imgW, imgH, imgHasAlpha, &textureImage);
     if (!valid) {
         perror(filename);
@@ -255,7 +286,58 @@ void init(char *filename) {
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+}
+
+void readConfigFile(const char *filename) {
+    fstream conf;
+    conf.open(filename, ios::in);
+    char buffer[256];
+    while (!conf.eof()) {
+        conf.getline(buffer, 256);
+        // Get Filename
+        char *imgnod = strtok(buffer, " :;");
+        if (imgnod == NULL) continue;
+        string filename(imgnod);
+        imgnod = strtok(NULL, " :;");
+        int deviate = atoi(imgnod);
+        imgIndex[filename] = imgAdjList.size();
+        ImageNode node(filename, deviate);
+
+        cout << "nodename=" << filename << " deviate=" << deviate << " Adj: ";
+
+        imgnod = strtok(NULL, " :;");
+        while (imgnod != NULL) {
+            string name(imgnod);
+            imgnod = strtok(NULL, " :;");
+            int deg = atoi(imgnod);
+
+            cout << "name=" << name << " deg=" << deg << ";";
+
+            node.next.push_back(NextNode(name, deg));
+
+            imgnod = strtok(NULL, " :;");
+        }
+        cout << endl;
+
+        imgAdjList.push_back(node);
+    }
+
+    cout << "Read " << imgAdjList.size() << " Images" << endl;
+    conf.close();
+}
+
+void init(void) {
+    glClearColor(0.0, 0.0, 0.0, 0.0);
+    glEnable(GL_DEPTH_TEST);
+    glShadeModel(GL_SMOOTH);
+    glEnable(GL_BLEND);
+    glBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
     glEnable(GL_TEXTURE_2D);
+
+    if (imgAdjList.size()) {
+        loadImage(imgAdjList[0].img_file.c_str());
+    }
 }
 
 int main(int argc, char **argv) {
@@ -266,14 +348,14 @@ int main(int argc, char **argv) {
     glutInitWindowPosition(100, 100);
     glutCreateWindow("Panorama Viewer");
     if (argc != 2) {
-        cout << "You must input a PNG file" << endl;
+        cout << "You must input a configure file" << endl;
         exit(1);
     }
-    init(argv[1]);
+    readConfigFile(argv[1]);
+    //loadImage(argv[1]);
+    init();
     glutDisplayFunc(display);
     glutReshapeFunc(reshape);
     glutSpecialFunc(keyboard);
-    //glutPassiveMotionFunc(passiveMotionFunc);
     glutMainLoop();
-
 }
