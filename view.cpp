@@ -146,7 +146,6 @@ bool loadPngImage(char *name, int &outWidth, int &outHeight, bool &outHasAlpha, 
 
 void display(void) {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    
     glColor3f(1.0, 1.0, 1.0);
 
     glBegin(GL_QUADS);
@@ -245,7 +244,6 @@ void init(char *filename) {
 
     cout << "imgW=" << imgW << " imgH=" << imgH << " radius=" << radius << endl;
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-
     glGenTextures(2, &texname);
     glBindTexture(GL_TEXTURE_2D, texname);
     glTexImage2D(GL_TEXTURE_2D, 0, imgHasAlpha ? 4 : 3, imgW,
@@ -273,7 +271,7 @@ int main(int argc, char **argv) {
     glutDisplayFunc(display);
     glutReshapeFunc(reshape);
     glutSpecialFunc(keyboard);
-    //glutPassiveMotionFunc(passiveMotionFunc);
+    glutPassiveMotionFunc(passiveMotionFunc);
     glutMainLoop();
 
 }
