@@ -8,19 +8,60 @@
 #include <errno.h>
 #include <malloc.h>
 #include <cstring>
+#include <vector>
+#include <string>
+#include <map>
+#include <fstream>
+#include <cstdlib>
 using namespace std;
+
+struct NextNode {
+    NextNode(string filename, int deg)
+        :img_file(filename), deg(deg) {}
+    string img_file;
+    int deg;
+};
+
+struct ImageNode {
+    ImageNode(string filename, int dev)
+        :img_file(filename), deviate(dev) {}
+    string img_file;
+    int deviate; // 偏转角（图片中的北方与Z轴的夹角）
+    /** 用于修正图片偏转，使用时用nowdeg += deviate
+     *            |
+     *            |
+     *            |
+     *            |
+     *            |
+     *  ----------.----------->
+     *           /|         X
+     *          / |
+     *         /deviate
+     *        /   |
+     *           Zv nowdeg=0
+     */
+    vector<NextNode> next;
+};
 
 const double PI = acos(-1);
 
 GLfloat len = 5.0f;
-GLfloat radius = 2.0f;
+const GLfloat radius = 4.5f;
 
 GLuint texname;
 GLubyte *textureImage;
 int imgW, imgH;
 bool imgHasAlpha;
+int nowdeg = 0; // 0度为正北
+int nowdeviate = 0;
 
-bool loadPngImage(char *name, int &outWidth, int &outHeight, bool &outHasAlpha, GLubyte **outData) {
+vector<ImageNode> imgAdjList;
+map<string, int> imgIndex;
+int currentImg = 0;
+
+void loadImage(const char *filename);
+
+bool loadPngImage(const char *name, int &outWidth, int &outHeight, bool &outHasAlpha, GLubyte **outData) {
     png_structp png_ptr;
     png_infop info_ptr;
     unsigned int sig_read = 0;
@@ -37,7 +78,7 @@ bool loadPngImage(char *name, int &outWidth, int &outHeight, bool &outHasAlpha, 
      * you can supply NULL for the last
      * three parameters.  We also supply the
      * the compiler header file version, so
-     * that we know if the application
+     * that we knowdeg if the application
      * was compiled with a compatible version
      * of the library.  REQUIRED
      */
@@ -149,7 +190,6 @@ void display(void) {
     glColor3f(1.0, 1.0, 1.0);
 
     glBegin(GL_QUADS);
-    //glBindTexture(GL_TEXTURE_2D, texname);
     for (GLfloat i = 0.0f; i <= 2 * PI; i += 0.01f) {
         double pos1 = i / (2 * PI);
         double pos2 = (i + 0.01) / (2 * PI);
@@ -178,23 +218,22 @@ void reshape(int w, int h) {
     gluLookAt(0, 0, 0, lookatx, 0.0, lookatz, 0.0, 1.0, 0.0);
 }
 
-int now = 0;
 double degToRad(int d) {
-    return d / 180.0 * PI;
+    return (d / 180.0) * PI;
 }
-
+/*
 void passiveMotionFunc(int x, int y) {
     if ( x > (scrw / 2) ) 
-        now = (now + 2) % 360;
+        nowdeg = (nowdeg + 2) % 360;
     else {
-        now = (now - 2) % 360;
-        if (now < 0) now = 360;
+        nowdeg = (nowdeg - 2) % 360;
+        if (nowdeg < 0) nowdeg = 360;
     }
 
-    //cout << "now=" << now << endl;
+    //cout << "nowdeg=" << nowdeg << endl;
 
-    lookatx = cos(degToRad(now));
-    lookatz = sin(degToRad(now));
+    lookatx = cos(degToRad(nowdeg));
+    lookatz = sin(degToRad(nowdeg));
 
     //cout << "x=" << x << " scrw=" << scrw << endl;
     //cout << lookatx << "  " << lookatz << endl;
@@ -203,46 +242,64 @@ void passiveMotionFunc(int x, int y) {
     gluLookAt(0, 0, 0, lookatx, 0.0, lookatz, 0.0, 1.0, 0.0);
     glutPostRedisplay();
 }
+*/
+
+void changeImage(int deg) {
+    vector<NextNode>& next = imgAdjList[currentImg].next;
+    vector<NextNode>::iterator itr = next.begin();
+    for (; itr != next.end(); ++ itr) {
+        if (abs(itr->deg - deg) <= 20) {
+            break;
+        }
+    }
+
+    if (itr != next.end()) {
+        free(textureImage);
+
+	    loadImage(itr->img_file.c_str());
+
+        currentImg = imgIndex[itr->img_file];
+        nowdeviate = imgAdjList[currentImg].deviate;
+    }
+}
 
 void keyboard(int key, int x, int y) {
     switch (key) {
     case GLUT_KEY_LEFT:
-        now = (now - 2) % 360;
-        if (now < 0) now = 360;
+        nowdeg = (nowdeg - 2) % 360;
+        if (nowdeg < 0) nowdeg = 360;
         break;
     case GLUT_KEY_RIGHT:
-        now = (now + 2) % 360;
+        nowdeg = (nowdeg + 2) % 360;
+        break;
+    case GLUT_KEY_UP:
+        changeImage(nowdeg);
         break;
     default:
         break;
     }
 
-    lookatx = cos(degToRad(now));
-    lookatz = sin(degToRad(now));
+    lookatx = cos(degToRad((nowdeg + nowdeviate) % 360));
+    lookatz = sin(degToRad((nowdeg + nowdeviate) % 360));
     glLoadIdentity();
 
     gluLookAt(0, 0, 0, lookatx, 0.0, lookatz, 0.0, 1.0, 0.0);
     glutPostRedisplay();
 }
 
-void init(char *filename) {
-    glClearColor(0.0, 0.0, 0.0, 0.0);
-    glEnable(GL_DEPTH_TEST);
-    glShadeModel(GL_SMOOTH);
-    glEnable(GL_BLEND);
-    glBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
+void loadImage(const char *filename) {
     bool valid = loadPngImage(filename, imgW, imgH, imgHasAlpha, &textureImage);
     if (!valid) {
         perror(filename);
         exit(1);
     }
 
-    double fac = len / imgH;
-    radius = imgW / 2.0 / PI * fac;
+    double fac = 2 * radius * PI / imgW;
+    //len = imgH * fac;
 
-
-    cout << "imgW=" << imgW << " imgH=" << imgH << " radius=" << radius << endl;
+    cout << "LoadImage " << filename << endl;
+    cout << "\timgW=" << imgW << " imgH=" << imgH << endl;
+    cout << "\tlen= " << len <<  " radius=" << radius << endl;
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
     glGenTextures(2, &texname);
     glBindTexture(GL_TEXTURE_2D, texname);
@@ -253,7 +310,64 @@ void init(char *filename) {
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+}
+
+void readConfigFile(const char *filename) {
+    fstream conf;
+    conf.open(filename, ios::in);
+    char buffer[256];
+    while (!conf.eof()) {
+        conf.getline(buffer, 256);
+        // Get Filename
+        char *imgnod = strtok(buffer, " :;");
+        if (imgnod == NULL) continue;
+        string filename(imgnod);
+        imgnod = strtok(NULL, " :;");
+        int deviate = atoi(imgnod);
+        imgIndex[filename] = imgAdjList.size();
+        ImageNode node(filename, deviate);
+
+        cout << "" << filename << " deviate=" << deviate << endl;
+
+        imgnod = strtok(NULL, " :;");
+        while (imgnod != NULL) {
+            string name(imgnod);
+            imgnod = strtok(NULL, " :;");
+            int deg = atoi(imgnod);
+
+            cout << "\t" << name << "   \t" << deg << endl;
+
+            node.next.push_back(NextNode(name, deg));
+
+            imgnod = strtok(NULL, " :;");
+        }
+
+        imgAdjList.push_back(node);
+    }
+
+    cout << "Read " << imgAdjList.size() << " Images" << endl;
+    conf.close();
+}
+
+void init(void) {
+    glClearColor(0.0, 0.0, 0.0, 0.0);
+    glEnable(GL_DEPTH_TEST);
+    glShadeModel(GL_SMOOTH);
+    glEnable(GL_BLEND);
+    glBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
     glEnable(GL_TEXTURE_2D);
+
+    // Initial Image
+    if (imgAdjList.size()) {
+        loadImage(imgAdjList[0].img_file.c_str());
+        nowdeviate = imgAdjList[0].deviate;
+
+        lookatx = cos(degToRad((nowdeg + nowdeviate) % 360));
+        lookatz = sin(degToRad((nowdeg + nowdeviate) % 360));
+    }
+
+    glLoadIdentity();
 }
 
 int main(int argc, char **argv) {
@@ -264,14 +378,15 @@ int main(int argc, char **argv) {
     glutInitWindowPosition(100, 100);
     glutCreateWindow("Panorama Viewer");
     if (argc != 2) {
-        cout << "You must input a PNG file" << endl;
+        cout << "You must input a configure file" << endl;
         exit(1);
     }
-    init(argv[1]);
+    readConfigFile(argv[1]);
+    //loadImage(argv[1]);
+    init();
     glutDisplayFunc(display);
     glutReshapeFunc(reshape);
     glutSpecialFunc(keyboard);
     glutPassiveMotionFunc(passiveMotionFunc);
     glutMainLoop();
-
 }
