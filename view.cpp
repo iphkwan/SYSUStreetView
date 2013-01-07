@@ -241,6 +241,23 @@ void passiveMotionFunc(int x, int y) {
     glutPostRedisplay();
 }
 */
+
+void changeImage(int deg) {
+    vector<NextNode>& next = imgAdjList[currentImg].next;
+    vector<NextNode>::iterator itr = next.begin();
+    for (; itr != next.end(); ++ itr) {
+        if (abs(itr->deg - deg) <= 10) {
+            break;
+        }
+    }
+
+    if (itr != next.end()) {
+        free(textureImage);
+
+        // TODO: Change Image
+    }
+}
+
 void keyboard(int key, int x, int y) {
     switch (key) {
     case GLUT_KEY_LEFT:
@@ -249,6 +266,8 @@ void keyboard(int key, int x, int y) {
         break;
     case GLUT_KEY_RIGHT:
         nowdeg = (nowdeg + 2) % 360;
+        break;
+    case GLUT_KEY_UP:
         break;
     default:
         break;
@@ -335,6 +354,7 @@ void init(void) {
 
     glEnable(GL_TEXTURE_2D);
 
+    // Initial Image
     if (imgAdjList.size()) {
         loadImage(imgAdjList[0].img_file.c_str());
     }
