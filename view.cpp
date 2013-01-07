@@ -58,6 +58,8 @@ vector<ImageNode> imgAdjList;
 map<string, int> imgIndex;
 int currentImg = 0;
 
+void loadImage(const char *filename);
+
 bool loadPngImage(const char *name, int &outWidth, int &outHeight, bool &outHasAlpha, GLubyte **outData) {
     png_structp png_ptr;
     png_infop info_ptr;
@@ -254,7 +256,8 @@ void changeImage(int deg) {
     if (itr != next.end()) {
         free(textureImage);
 
-        // TODO: Change Image
+	    loadImage(itr->img_file.c_str());
+        nowdeg += itr->deg;
     }
 }
 
@@ -268,6 +271,7 @@ void keyboard(int key, int x, int y) {
         nowdeg = (nowdeg + 2) % 360;
         break;
     case GLUT_KEY_UP:
+        changeImage(nowdeg);
         break;
     default:
         break;
