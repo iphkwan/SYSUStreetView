@@ -52,7 +52,8 @@ GLuint texname;
 GLubyte *textureImage;
 int imgW, imgH;
 bool imgHasAlpha;
-int nowdeg = 0;
+int nowdeg = 0; // 0度为正北
+int nowdeviate = 0;
 
 vector<ImageNode> imgAdjList;
 map<string, int> imgIndex;
@@ -219,7 +220,7 @@ void reshape(int w, int h) {
 }
 
 double degToRad(int d) {
-    return d / 180.0 * PI;
+    return (d / 180.0) * PI;
 }
 /*
 void passiveMotionFunc(int x, int y) {
@@ -257,7 +258,11 @@ void changeImage(int deg) {
         free(textureImage);
 
 	    loadImage(itr->img_file.c_str());
-        nowdeg += itr->deg;
+        nowdeviate = imgAdjList[currentImg].deviate;
+
+        currentImg = imgIndex[itr->img_file];
+
+        cout << "nowdeviate=" << nowdeviate << endl;
     }
 }
 
@@ -278,8 +283,8 @@ void keyboard(int key, int x, int y) {
     }
     cout << "Current deg = " << nowdeg << endl;
 
-    lookatx = cos(degToRad(nowdeg));
-    lookatz = sin(degToRad(nowdeg));
+    lookatx = cos(degToRad((nowdeg + nowdeviate) % 360));
+    lookatz = sin(degToRad((nowdeg + nowdeviate) % 360));
     glLoadIdentity();
 
     gluLookAt(0, 0, 0, lookatx, 0.0, lookatz, 0.0, 1.0, 0.0);
@@ -361,7 +366,13 @@ void init(void) {
     // Initial Image
     if (imgAdjList.size()) {
         loadImage(imgAdjList[0].img_file.c_str());
+        nowdeviate = imgAdjList[0].deviate;
+
+        lookatx = cos(degToRad((nowdeg + nowdeviate) % 360));
+        lookatz = sin(degToRad((nowdeg + nowdeviate) % 360));
     }
+
+    glLoadIdentity();
 }
 
 int main(int argc, char **argv) {
