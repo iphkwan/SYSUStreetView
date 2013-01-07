@@ -387,6 +387,6 @@ int main(int argc, char **argv) {
     glutDisplayFunc(display);
     glutReshapeFunc(reshape);
     glutSpecialFunc(keyboard);
-    glutPassiveMotionFunc(passiveMotionFunc);
+    //glutPassiveMotionFunc(passiveMotionFunc);
     glutMainLoop();
 }
