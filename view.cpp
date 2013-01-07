@@ -46,7 +46,7 @@ struct ImageNode {
 const double PI = acos(-1);
 
 GLfloat len = 5.0f;
-GLfloat radius = 2.0f;
+const GLfloat radius = 4.5f;
 
 GLuint texname;
 GLubyte *textureImage;
@@ -249,7 +249,7 @@ void changeImage(int deg) {
     vector<NextNode>& next = imgAdjList[currentImg].next;
     vector<NextNode>::iterator itr = next.begin();
     for (; itr != next.end(); ++ itr) {
-        if (abs(itr->deg - deg) <= 10) {
+        if (abs(itr->deg - deg) <= 20) {
             break;
         }
     }
@@ -258,11 +258,9 @@ void changeImage(int deg) {
         free(textureImage);
 
 	    loadImage(itr->img_file.c_str());
-        nowdeviate = imgAdjList[currentImg].deviate;
 
         currentImg = imgIndex[itr->img_file];
-
-        cout << "nowdeviate=" << nowdeviate << endl;
+        nowdeviate = imgAdjList[currentImg].deviate;
     }
 }
 
@@ -281,7 +279,6 @@ void keyboard(int key, int x, int y) {
     default:
         break;
     }
-    cout << "Current deg = " << nowdeg << endl;
 
     lookatx = cos(degToRad((nowdeg + nowdeviate) % 360));
     lookatz = sin(degToRad((nowdeg + nowdeviate) % 360));
@@ -298,11 +295,12 @@ void loadImage(const char *filename) {
         exit(1);
     }
 
-    double fac = len / imgH;
-    radius = imgW / 2.0 / PI * fac;
+    double fac = 2 * radius * PI / imgW;
+    //len = imgH * fac;
 
-
-    cout << "imgW=" << imgW << " imgH=" << imgH << " radius=" << radius << endl;
+    cout << "LoadImage " << filename << endl;
+    cout << "\timgW=" << imgW << " imgH=" << imgH << endl;
+    cout << "\tlen= " << len <<  " radius=" << radius << endl;
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
     glGenTextures(2, &texname);
@@ -331,7 +329,7 @@ void readConfigFile(const char *filename) {
         imgIndex[filename] = imgAdjList.size();
         ImageNode node(filename, deviate);
 
-        cout << "nodename=" << filename << " deviate=" << deviate << " Adj: ";
+        cout << "" << filename << " deviate=" << deviate << endl;
 
         imgnod = strtok(NULL, " :;");
         while (imgnod != NULL) {
@@ -339,13 +337,12 @@ void readConfigFile(const char *filename) {
             imgnod = strtok(NULL, " :;");
             int deg = atoi(imgnod);
 
-            cout << "name=" << name << " deg=" << deg << ";";
+            cout << "\t" << name << "   \t" << deg << endl;
 
             node.next.push_back(NextNode(name, deg));
 
             imgnod = strtok(NULL, " :;");
         }
-        cout << endl;
 
         imgAdjList.push_back(node);
     }
