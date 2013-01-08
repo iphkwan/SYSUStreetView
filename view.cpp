@@ -13,6 +13,7 @@
 #include <map>
 #include <fstream>
 #include <cstdlib>
+#include <cstdio>
 using namespace std;
 
 struct NextNode {
@@ -185,6 +186,10 @@ bool loadPngImage(const char *name, int &outWidth, int &outHeight, bool &outHasA
     return true;
 }
 
+double degToRad(int d) {
+    return (d / 180.0) * PI;
+}
+
 void display(void) {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     
@@ -200,6 +205,49 @@ void display(void) {
         glTexCoord2f(/*pos1 > 1 ? 1 : */pos1, 1.0); glVertex3f(cos(i) * radius, len / 2, sin(i) * radius);
     }
     glEnd();
+    
+    vector<NextNode> &next = imgAdjList[currentImg].next;
+    const double H = 5.0, M = 0.5;
+    const double ang = atan(M / H);
+    const double ang2 = atan(2 * M / H);
+    const double cro = sqrt(H * H + M * M);
+    const double cro2 = sqrt(H * H + 4 * M * M);
+    for (vector<NextNode>::iterator itr = next.begin(); itr != next.end(); ++ itr) {
+        int sita = (nowdeviate + itr->deg + 360) % 360;
+
+        double z4 = sin(degToRad(sita) - ang) * cro;
+        double x4 = cos(degToRad(sita) - ang) * cro;
+        double z3 = sin(degToRad(sita) + ang) * cro;
+        double x3 = cos(degToRad(sita) + ang) * cro;
+        double z2 = sin(degToRad(sita + 90)) * M;
+        double x2 = cos(degToRad(sita + 90)) * M;
+        double z1 = sin(degToRad(sita - 90)) * M;
+        double x1 = cos(degToRad(sita - 90)) * M;
+
+        glBegin(GL_QUADS);
+        glVertex3f(x1, -2.0, z1);
+        glVertex3f(x2, -2.0, z2);
+        glVertex3f(x3, -1.0, z3);
+        glVertex3f(x4, -1.0, z4);
+        glEnd();
+
+        double tx1 = cos(degToRad(sita) - ang2) * cro2;
+        double tz1 = sin(degToRad(sita) - ang2) * cro2;
+        double tx2 = cos(degToRad(sita) + ang2) * cro2;
+        double tz2 = sin(degToRad(sita) + ang2) * cro2;
+        double tdis = H + 4 * M * sin(degToRad(60));
+        double tx3 = cos(degToRad(sita)) * tdis;
+        double tz3 = sin(degToRad(sita)) * tdis;
+        
+        printf("(%lf,%lf)(%lf,%lf)(%lf,%lf)\n", tx1, tz1, tx2, tz2, tx3, tz3);
+
+        glColor3f(1.0, 1.0, 1.0);
+        glBegin(GL_TRIANGLES);
+        glVertex3f(tx1, -1.0, tz1);
+        glVertex3f(tx2, -1.0, tz2);
+        glVertex3f(tx3, 1.0, tz3);
+        glEnd();
+    }
 
     glFlush();
     glutSwapBuffers();
@@ -217,10 +265,6 @@ void reshape(int w, int h) {
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
     gluLookAt(0, 0, 0, lookatx, 0.0, lookatz, 0.0, 1.0, 0.0);
-}
-
-double degToRad(int d) {
-    return (d / 180.0) * PI;
 }
 /*
 void passiveMotionFunc(int x, int y) {
